@@ -1,0 +1,36 @@
+Write C++ program which creates 3 threads
+1. Data generator
+        Generates random size vectors of  random ints for random time (max 10s) and passes to processer.
+        Use some little sleep between each yield.
+
+ << generates random size vectors of random ints, pushes into queue
+
+
+
+
+ >> takes random size vectors of random ints, generates averages
+2. Data processer
+        Calculates average for each of vectors. Passes the result to aggregator.
+
+ << pushes into queue into aggregator
+
+3. Data aggregator
+        Calculates average of averages. Prints out result after finishing work.
+
+Program should gracefully quit at the end, using notification,
+ that there will be no more work (time limit reached).
+
+For data passing between threads,
+create "universal (templated) queue"
+ which you can use in all (current two) cases.
+
+
+Threads are not allowed to block each other executing its task,
+ except in a moment when pushing / popping data in exchange queue.
+
+You can send it as a zip or link to GitHub (or similar repos).
+
+
+// Identified Producer - consumer pattern
+
+// Tests -- try empty {0,0,0,0}, one vector, 2 vectors
