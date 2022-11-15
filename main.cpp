@@ -105,7 +105,7 @@ void processor(SharedQueue<std::vector<int>> * const procQueue, SharedQueue<floa
         if (data){
 
             auto count = static_cast<float>(data->size());
-            float avg = static_cast<float>(std::reduce(data->begin(), data->end())) / static_cast<float>(count);
+            float avg = static_cast<float>(std::reduce(data->begin(), data->end())) / count;
 
             aggrQueue->push(avg);
 
