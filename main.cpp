@@ -9,6 +9,14 @@
 #include <optional>
 #include <atomic>
 
+// Change to 1 for std::reduce to use parallel exec policy, to 0 to use sequential
+#define PARRALEL 0
+#if PARRALEL
+    #include <execution>
+    #define EXEC_POLICY std::execution::par,
+#else
+    #define EXEC_POLICY
+#endif
 template<typename T>
 class SharedQueue {
     std::queue<T> m_queue;
@@ -60,7 +68,7 @@ void generator(SharedQueue<std::vector<int>> * procQueue) {
     // Time distribution
     std::uniform_int_distribution<int> timeRange(1, TIME_LIMIT);
     auto generatorTimeLimit = std::chrono::seconds(timeRange(ranEng));
-
+    generatorTimeLimit = std::chrono::seconds(10);
     // vector size distribution
     std::uniform_int_distribution<int> sizeRange(1, 1000);
 
@@ -71,37 +79,35 @@ void generator(SharedQueue<std::vector<int>> * procQueue) {
     start = std::chrono::system_clock::now();
     std::cout << "Generator will work for " << generatorTimeLimit.count() << "seconds" << std::endl;
 
+    // debug
+    int count {0};
+
+    // For random time from 1 to 10 seconds
     while (std::chrono::system_clock::now() - start < generatorTimeLimit) {
-        std::vector<int> vec;
-        // Generate random vector size
-        auto vecSize = sizeRange(ranEng);
-        // Generate random size vectors of random ints for random time
-        for (auto i = vecSize; i > 0; --i){
-            vec.push_back(valueRange(ranEng));
+        // Generate random sized vector
+        //auto vecSize = sizeRange(ranEng);
+        int vecSize = 10;
+        std::vector<int> vec(vecSize);
 
-            // If no time left, stop work
-            if (std::chrono::system_clock::now() - start < generatorTimeLimit)
-            {
-                // Save the last vector
-                procQueue->push(vec);
-                break;
-            }
-        }
+        // Generate random ints
+        std::generate_n(vec.begin(), vecSize, [&valueRange, &ranEng]() -> int {return valueRange(ranEng);});
+
         procQueue->push(vec);
-        std::this_thread::sleep_for(std::chrono::microseconds(200));
+        ++count;
 
+        std::this_thread::sleep_for(std::chrono::microseconds(4000));
     }
 
     auto stop =std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - st);
-    std::cout << "No more time left." << std::endl;
-    std::cout << duration.count() << std::endl;
+    std::cout << "No more time left. Generated "<< count << " vectors." << std::endl;
+    std::cout << "Generating took: " << duration.count() << std::endl;
     genFinished = true;
 }
 
 
 
-void processor(SharedQueue<std::vector<int>> * procQueue, SharedQueue<float> * aggrQueue) {
+void processor(SharedQueue<std::vector<int>> * const procQueue, SharedQueue<float> * const aggrQueue) {
     auto st = std::chrono::high_resolution_clock::now();
     std::cout << "Hi from processor" << std::endl;
     procFinished = false;
@@ -110,6 +116,7 @@ void processor(SharedQueue<std::vector<int>> * procQueue, SharedQueue<float> * a
     // Wait for data
     while(!data)
     {
+        std::this_thread::sleep_for(std::chrono::microseconds(1000));
         data = procQueue->pop();
     }
     std::cout << "Processor got data" << std::endl;
@@ -119,9 +126,14 @@ void processor(SharedQueue<std::vector<int>> * procQueue, SharedQueue<float> * a
 
             // auto vec = procQueue->front();
             auto count = static_cast<float>(data->size());
-            float avg = static_cast<float>(std::reduce(data->begin(), data->end())) / static_cast<float>(count);
+            float avg = static_cast<float>(std::reduce(EXEC_POLICY data->begin(), data->end())) / static_cast<float>(count);
 
             aggrQueue->push(avg);
+            std::this_thread::sleep_for(std::chrono::microseconds(10000));
+            data = procQueue->pop();
+        }
+        else{ // Data has not been added quickly enough, wait for data again
+            std::this_thread::sleep_for(std::chrono::microseconds(77));
             data = procQueue->pop();
         }
     }
@@ -132,29 +144,33 @@ void processor(SharedQueue<std::vector<int>> * procQueue, SharedQueue<float> * a
     std::cout << duration.count() << std::endl;
 }
 
-void aggregator(SharedQueue<float> * aggrQueue, float * result) {
+void aggregator(SharedQueue<float> * const aggrQueue, float * const result) {
     auto st = std::chrono::high_resolution_clock::now();
     std::cout<<"hi from aggregator" << std::endl;
     float aggr = {0.0};
     int count = {0};
+    std::this_thread::sleep_for(std::chrono::microseconds(100000));
     auto data = aggrQueue->pop();
 
     // Wait for data
     while(!data){
+        std::this_thread::sleep_for(std::chrono::microseconds(100000));
         data = aggrQueue->pop();
     }
     std::cout<<"Aggregator got data" << std::endl;
 
     while(!procFinished || data) {
         if (data) {
-            // change to data TODO
             aggr += data.value();
             data = aggrQueue->pop();
             ++count;
+        } else { // Data has not been added quickly enough, wait for data again
+            std::this_thread::sleep_for(std::chrono::microseconds(10000));
+            data = aggrQueue->pop();
         }
     }
     std::cout << "aggr = " << aggr << " count " << count << std::endl;
-    float average = aggr / count;
+    float average = aggr / static_cast<float>(count);
     //std::cout << "aggregator FINISHED" << std::endl;
     * result = average;
     auto stop =std::chrono::high_resolution_clock::now();
@@ -182,6 +198,6 @@ int main() {
     procThread.join();
     aggrThread.join();
 
-    std::cout<<"Program finished, result: " << result << std::endl;
+    std::cout<<"Program finished, total average: " << result << std::endl;
     return 0;
 }

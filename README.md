@@ -50,15 +50,39 @@ maxVectorSize * maxVectorValue < MAX_INT, it can cause value overflow in process
 
 Because we are using uniform distribution of ints from -1000 to 1000, statistically program should output a value closer to 0.
 
+### Processor 
+
+* Reads vector from SharedQueue. 
+* Uses std::reduce / std::vector<>.size() to calculate the average value for the vector. 
+* Pushes the value to the SharedQueue. 
+
+### Aggregator
+
+* Reads average (floats) values from SharedQueue.
+* Counts and aggregates values
+* Writes an average result to result variable.
+
+------
+
 ##### Things that could be done better 
 
 - Waiting for data:
-```
+```c++
  while(!data)
     {
         data = procQueue->pop();
     }
 ```
+```c++
+ } else { // Data has not been added quickly enough, wait for data again
+            data = aggrQueue->pop();
+        }
+```
 will actually block writing to the queue, and can block permanently in some cases. 
 A SIGNAL to start processing (as a data presence) can actually be more reliable to use, but has not been specified in the 
 task. With a signal, the processing thread can be started only after the generator has completed the first vector (waterfall model).
+
+- Aggregation with custom look to avoid integer overload:
+```c++
+float avg = static_cast<float>(std::reduce(data->begin(), data->end())) / static_cast<float>(count);
+```
