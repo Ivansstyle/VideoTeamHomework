@@ -13,18 +13,25 @@
 5. `./VideoTeamHomework`
 
 - __gcc__
-1. `g++ -std=c++2a -pthread -o vth main.cpp`
+1. `g++ -std=c++2a -pthread -O3 -Wall -Wextra -o vth main.cpp`
 2. `./vth`
 
 - any other compiler
-1. make sure to define c++20 standard "-std=c++2a or equivalent", link against STL and compile with Pthreads enabled.
+1. make sure to define c++20 standard "-std=c++2a or equivalent", link against STL and compile with posix threads enabled.
 
 -----
 ## About the task
-The program creates 3 threads that produce / process / accumulate result. The task resembles a "Producer - Consumer"
+The program creates 3 threads that generate / process / accumulate result. The task resembles a "Producer - Consumer"
 pattern. 2 flags are added (genFinished and procFinished) as atomics (block will not impact performance in any, as they
 are modified at the beginning and ending only) to release processor and aggregator when the work is done. Flags also allow 
 processes to wait if queues are empty but work before has not been done. 
+
+## Program Output
+ - "Generator time limit reached" - generator has reached the random time limit between 1-10seconds
+ - "Total average: ..." - total average calculated by the aggregator. With ints in vector constraint of -1000 to 1000, 
+output will be always trying to reach 0, because uniform distribution is used for the random number generator. 
+------------
+## Code comments
 
 ### SharedQueue
 SharedQueue is a template class that modifies STL's queue functions with  addition of blocking mutex.
@@ -84,7 +91,7 @@ will actually block writing to the queue, and can block permanently in some case
 A SIGNAL to start processing (as a data presence) can actually be more reliable to use, but has not been specified in the 
 task. With a signal, the processing thread can be started only after the generator has completed the first vector (waterfall model).
 
-Quick fix for this is adding a small delay between checks, to make sure that lock is released more often than locked. 
+Quick fix for this is adding a small delay between checks, to make sure that lock is released more often than locked. **This is implemented.**
 
 
 - Aggregation with custom loop to avoid integer overload:
