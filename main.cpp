@@ -9,14 +9,6 @@
 #include <optional>
 #include <atomic>
 
-// Change to 1 for std::reduce to use parallel exec policy, to 0 to use sequential
-#define PARRALEL 1
-#if PARRALEL
-    #include <execution>
-    #define EXEC_POLICY std::execution::par,
-#else
-    #define EXEC_POLICY
-#endif
 template<typename T>
 class SharedQueue {
     std::queue<T> m_queue;
@@ -125,7 +117,7 @@ void processor(SharedQueue<std::vector<int>> * const procQueue, SharedQueue<floa
 
             // auto vec = procQueue->front();
             auto count = static_cast<float>(data->size());
-            float avg = static_cast<float>(std::reduce(EXEC_POLICY data->begin(), data->end())) / static_cast<float>(count);
+            float avg = static_cast<float>(std::reduce(data->begin(), data->end())) / static_cast<float>(count);
 
             aggrQueue->push(avg);
 
